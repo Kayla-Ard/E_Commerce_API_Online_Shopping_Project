@@ -1,11 +1,11 @@
-from flask import Flask, jsonify, request # pip install flask
-from flask_sqlalchemy import SQLAlchemy # pip install flask-sqlalchemy
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session # pip install sqlalchemy 
-from sqlalchemy import select 
-from flask_marshmallow import Marshmallow # pip install flask-marshmallow
+from flask import Flask, jsonify, request 
+from flask_sqlalchemy import SQLAlchemy 
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session 
+from sqlalchemy import select, ForeignKey, delete, Column, String, Integer 
+from flask_marshmallow import Marshmallow 
 from marshmallow import fields, validate, ValidationError
 from typing import List
-import datetime
+from datetime import datetime, timedelta
 
 # Mini Project: E-commerce API
 
@@ -85,6 +85,9 @@ import datetime
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/e_commerce_db2"
 
+@app.route("/") # Are we supposed to keep this in our code? if so is it in the right place? what exactly is it?
+def home():
+    return "My name is Kayla"
 class Base(DeclarativeBase):
     pass
 
@@ -112,10 +115,6 @@ class CustomerSchema(ma.Schema):
 customer_schema = CustomerSchema()
 customers_schema = CustomerSchema(many = True) 
 
-@app.route("/") # Are we supposed to keep this in our code? if so is it in the right place? 
-def home():
-    return "My name is Kayla"
-
 @app.route("/customers", methods = ["GET"])
 def get_customers():
     query = select(Customer) 
@@ -123,6 +122,14 @@ def get_customers():
     print(result)
     customers = result.all() 
     return customers_schema.jsonify(customers)
+
+@app.route("/customers/<int:id>", methods=["GET"])
+def get_customer_per_id(id):
+    customer = Customer.query.filter_by(customer_id=id).first()
+    if customer:
+        return customer_schema.jsonify(customer)
+    else:
+        return jsonify({"message": "Customer could not be found with that customer ID"}), 404
 
 @app.route("/customers", methods = ["POST"])
 def add_customer():
@@ -141,8 +148,29 @@ def add_customer():
             session.commit()
     return jsonify({"message": "New customer added successfully"}), 201 
 
+@app.route("/customers/<int:id>", methods=["PUT"]) # Want to see how Ryan does this... not sure this is correct 
+def update_customer(id):
+    try:
+        customer = Customer.query.get(id)
+        if customer is not: # ???? Is there a way to say this? Am i going crazy?!?!?
+            return jsonify({"message": "Customer could not be found with that customer ID"}), 404
+        customer_data = customer_schema.load(request.json, partial = True)
+        for key, value in customer_data.items():
+            setattr(customer, key, value)
+        db.session.commit()
+        return jsonify({"message": "Customer updated successfully"}), 200
+    except ValidationError as err:
+        return jsonify(err.messages), 400
 
 
+@app.route("/customers/<int:id>", methods=["DELETE"]) # Ask Ryan if this is right before doing DELETE for others 
+def delete_customer(id):
+    customer = Customer.query.get(id)
+    if customer not: # ???? Is there a way to say this? Am i going crazy?!?!?
+        return jsonify({"message": "Customer could not be found with that customer ID"}), 404
+    db.session.delete(customer)
+    db.session.commit()
+    return jsonify({"message": "Customer deleted successfully."}), 200
 
 
 
@@ -181,36 +209,33 @@ def get_customer_accounts():
     result = db.session.execute(query).scalars() 
     print(result)
     customer_accounts = result.all() 
-    return customer_accounts_schema.jsonify(customer_accounts)
+    return customer_account_schema.jsonify(customer_accounts)
 
-
-
-
-
-
-
-class Order(Base):
-    __tablename__ = "Orders"
-    order_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
-    date: Mapped[datetime.date] = mapped_column(db.Date, nullable = False)
-    customer_id: Mapped[int] = mapped_column(db.ForeignKey('Customers.customer_id'))
-    customer: Mapped['Customer'] = db.relationship(back_populates = "orders")
-    products: Mapped[List["Product"]] = db.relationship(secondary = order_product)
+@app.route("/customer_accounts", methods = ["POST"])
+def add_customer_accounts():
+    try:
+        customer_accounts_data = customer_account_schema.load(request.json)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
     
-class OrderSchema(ma.Schema):
-    order_id = fields.Integer(required = False)
-    date = fields.Date(required = True)
-    customer_id = fields.Integer(required = True)
+    with Session(db.engine) as session: 
+        with session.begin():
+            username = customer_accounts_data['username']
+            password = customer_accounts_data['password']
+            customer_id = customer_accounts_data['customer_id']
+            new_customer_account = CustomerAccount(username = username, password = password, customer_id = customer_id)
+            session.add(new_customer_account)
+            session.commit()
+    return jsonify({"message": "New customer account added successfully"}), 201 
 
-    class Meta:
-        fields = ("order_id", "date", "customer_id")
+@app.route("/customer_accounts/<int:id>", methods = ["PUT"]) # Waiting to see if my update_customer is correct before doing this one the same way 
+def update_customer_account(id):
+    pass # Need Help!
 
-order_schema = OrderSchema()
-orders_schema = OrderSchema(many = True) 
-
-
-
-
+@app.route("/customer_accounts/<int:id>", methods = ["DELETE"]) # Need Help
+def delete_customer_account(id):
+    return jsonify({"message": "Customer account was deleted successfully."}), 200
+    pass
 
 
 
@@ -236,18 +261,150 @@ class ProductSchema(ma.Schema):
 product_schema = ProductSchema()
 products_schema = ProductSchema(many = True) 
 
+@app.route("/products", methods = ["GET"])
+def get_products():
+    query = select(Product) 
+    result = db.session.execute(query).scalars() 
+    print(result)
+    products = result.all() 
+    return product_schema.jsonify(products)
+
+@app.route("/products/name_of_product/<string:name>", methods=["GET"])
+def get_product_per_name(name):
+    product = Product.query.filter_by(name=name).first()
+    if product:
+        return product_schema.jsonify(product)
+    else:
+        return jsonify({"message": "Product could not be found by that name"}), 404
+    
+@app.route("/products", methods = ["POST"])
+def add_product():
+    try:
+        product_data = product_schema.load(request.json)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+    
+    with Session(db.engine) as session: 
+        with session.begin():
+            name = product_data['name']
+            price = product_data['price']
+            new_product = Product(name = name, price = price)
+            session.add(new_product)
+            session.commit()
+    return jsonify({"message": "New product added successfully"}), 201 
+
+@app.route("/products/<int:id>", methods = ["PUT"]) # Waiting to see if my update_customer is correct before doing this one the same way 
+def update_product(id):
+    pass # Need help!
+
+@app.route("/products/<int:id>", methods = ["DELETE"]) # See if the delete customer one is correct then do this one 
+def delete_product(id):
+    del_product = delete(Product) (Product.product_id) # Something is clearly wrong here 
+    pass # Need Help!!
+    return jsonify({"message": "Product was deleted successfully."}), 200
+
+@app.route("/restock_products", methods=["POST"]) # This is a bonus option 
+def restock_products():
+    threshold = request.json.get("threshold", 10) 
+    products_to_restock = []
+    low_stock_products = Product.query.filter(Product.stock < threshold).all()
+    for product in low_stock_products:
+        product.stock += 20 
+        products_to_restock.append(product)
+    db.session.commit()
+    return products_schema.jsonify(products_to_restock)
 
 
 
 
+class Order(Base):
+    __tablename__ = "Orders"
+    order_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
+    date: Mapped[datetime.date] = mapped_column(db.Date, nullable = False)
+    customer_id: Mapped[int] = mapped_column(db.ForeignKey('Customers.customer_id'))
+    customer: Mapped['Customer'] = db.relationship(back_populates = "orders")
+    products: Mapped[List["Product"]] = db.relationship(secondary = order_product)
+    
+class OrderSchema(ma.Schema):
+    order_id = fields.Integer(required = False)
+    date = fields.Date(required = True)
+    customer_id = fields.Integer(required = True)
 
+    class Meta:
+        fields = ("order_id", "date", "customer_id")
 
+order_schema = OrderSchema()
+orders_schema = OrderSchema(many = True) 
 
+@app.route("/orders", methods = ["GET"])
+def get_orders():
+    query = select(Order) 
+    result = db.session.execute(query).scalars() 
+    print(result)
+    orders = result.all() 
+    return order_schema.jsonify(orders)
 
+@app.route("/orders/<int:customer_id>", methods=["GET"])
+def get_order_per_customer_id(customer_id):
+    orders = Order.query.filter_by(customer_id=customer_id).all() 
+    if orders:
+        return orders_schema.jsonify(orders)
+    elif not orders: # Trying to say if this customer does exist but doesn't have any orders. Is this right??
+        return jsonify({"message": f"Customer:{customer_id} does not currently have any orders."})
+    else:
+        return jsonify({"message": "No orders found for this customer"}), 404
 
+@app.route("/orders", methods = ["POST"])
+def add_order():
+    try:
+        order_data = order_schema.load(request.json)
+    except ValidationError as err:
+        return jsonify(err.messages), 400
+    
+    with Session(db.engine) as session: 
+        with session.begin():
+            date = order_data['date']
+            customer_id = order_data['customer_id']
+            new_order = CustomerAccount(date = date, customer_id = customer_id)
+            session.add(new_order)
+            session.commit()
+    return jsonify({"message": "New order added successfully"}), 201 
 
+@app.route("/orders/<int:id>", methods = ["PUT"]) # Waiting to see if my update_customer is correct before doing this one the same way 
+def update_order(id):
+    pass # Need help!
 
+@app.route("/orders/<int:id>", methods = ["DELETE"])
+def delete_order(id):
+    del_order = delete(Order) (Order.order_id) # Something is wrong here 
+    pass # Need Help!!
+    return jsonify({"message": "Order was deleted successfully."}), 200
 
+@app.route("/track_order/<int:order_id>", methods=["GET"]) # This is a bonus option 
+def track_order(order_id):
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"message": "Order not found"}), 404
+    expected_delivery_date = order.date + timedelta(days=7)
+    order_data = {
+        "order_id": order.order_id,
+        "date": order.date,
+        "expected_delivery_date": expected_delivery_date,
+        "customer_id": order.customer_id,
+        "status": "In progress"  
+    }
+    return jsonify(order_data)
+
+@app.route("/cancel_order/<int:order_id>", methods=["DELETE"]) #This is a bonus option
+def cancel_order(order_id):
+    order = Order.query.get(order_id)
+    if not order:
+        return jsonify({"message": "Order not found"}), 404
+    if order.status in ["Shipped", "Completed"]:
+        return jsonify({"message": "Cannot cancel order. It has already been shipped or completed."}), 400
+    db.session.delete(order)
+    db.session.commit()
+    return jsonify({"message": "Order canceled successfully"}), 200
 
 
 
