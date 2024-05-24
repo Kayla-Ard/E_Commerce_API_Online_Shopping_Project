@@ -1,130 +1,65 @@
 from flask import Flask, jsonify, request 
 from flask_cors import CORS 
 from flask_sqlalchemy import SQLAlchemy 
-from sqlalchemy.orm import Mapped, mapped_column, relationship, Session, MappedCollection, mapper
-from sqlalchemy import select, ForeignKey, delete, Column, String, Integer, Table, Float, Date 
+from sqlalchemy.orm import Mapped, mapped_column, relationship, Session, registry
+from sqlalchemy import select, ForeignKey, delete, Column, String, Integer, Table, Float, Date, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from flask_marshmallow import Marshmallow 
-from marshmallow import fields, validate, ValidationError
+from marshmallow import fields, ValidationError
 from typing import List
 from datetime import datetime, timedelta, date
 
-# Mini Project: E-commerce API
-
-# In today's digital age, online shopping has become an integral part of our lives.
-# E-commerce platforms have revolutionized the way we purchase products, offering convenience, variety, and accessibility like never before.
-# However, building a robust e-commerce application from scratch can be a complex task, involving various components such as user management, product listings, shopping carts, and order processing.
-
-# Imagine you are tasked with creating an e-commerce application that empowers both customers and administrators.
-# The goal is to build a user-friendly platform where customers can effortlessly browse products, add them to their shopping carts, and place orders.
-# Simultaneously, administrators should have tools to manage product inventory, track orders, and ensure a seamless shopping experience.
-
-# To tackle this challenge, we will leverage the power of Python and two essential libraries:
-    # Flask and Flask-SQLAlchemy.
-        # Flask is a lightweight web framework that simplifies web application development
-        # Flask-SQLAlchemy provides a robust toolkit for database interactions.
-        # Together, they form the perfect duo to craft our e-commerce solution.
-
-# In this project, we will guide you through the process of building an e-commerce application that closely mimics real-world scenarios.
-
-# Project Requirements
-
-# To successfully build our e-commerce application and achieve the learning objectives, we need to establish clear project requirements.
-# These requirements outline the key features and functionalities that our application must encompass.
-# Below, you'll find a comprehensive list of project requirements based on our learning objectives:
-    # 💡 **Note:** We've already developed key functionalities for our e-commerce project in the "Module 6: API REST Development" lessons, including models, schemas, and endpoints for Customers and Products.
-    # To save time and maintain consistency, consider reusing the Flask-SQLAlchemy project as a foundation for Orders and Shopping Cart components.
-    # This approach ensures a unified and efficient codebase, making it easier to integrate new features into the existing solution.
-    
-    # 1. Customer and CustomerAccount Management:
-        # Create the CRUD (Create, Read, Update, Delete) endpoints for managing Customers and their associated CustomerAccounts:
-            
-        # Create Customer: Implement an endpoint to add a new customer to the database. Ensure that you capture essential customer information, including name, email, and phone number.
-        # Read Customer: Develop an endpoint to retrieve customer details based on their unique identifier (ID). Provide functionality to query and display customer information.
-        # Update Customer: Create an endpoint for updating customer details, allowing modifications to the customer's name, email, and phone number.
-        # Delete Customer: Implement an endpoint to delete a customer from the system based on their ID.
-    
-        # Create CustomerAccount: Develop an endpoint to create a new customer account. This should include fields for a unique username and a secure password.
-        # Read CustomerAccount: Implement an endpoint to retrieve customer account details, including the associated customer's information.
-        # Update CustomerAccount: Create an endpoint for updating customer account information, including the username and password.
-        # Delete CustomerAccount: Develop an endpoint to delete a customer account.
-    
-    # 2. Product Catalog: Create the CRUD (Create, Read, Update, Delete) endpoints for managing Products:
-        # Create Product: Implement an endpoint to add a new product to the e-commerce database. Capture essential product details, such as the product name and price.
-        # Read Product: Develop an endpoint to retrieve product details based on the product's unique identifier (ID). Provide functionality to query and display product information.
-        # Update Product: Create an endpoint for updating product details, allowing modifications to the product name and price.
-        # Delete Product: Implement an endpoint to delete a product from the system based on its unique ID.
-        # List Products: Develop an endpoint to list all available products in the e-commerce platform. Ensure that the list provides essential product information.
-            # View and Manage Product Stock Levels (Bonus): Create an endpoint that allows to view and manage the stock levels of each product in the catalog. Administrators should be able to see the current stock level and make adjustments as needed.
-            # Restock Products When Low (Bonus): Develop an endpoint that monitors product stock levels and triggers restocking when they fall below a specified threshold. Ensure that stock replenishment is efficient and timely.
-    
-    # 3. Order Processing: Develop comprehensive Orders Management functionality to efficiently handle customer orders, ensuring that customers can place, track, and manage their orders seamlessly.
-        # Place Order: Create an endpoint for customers to place new orders, specifying the products they wish to purchase and providing essential order details. Each order should capture the order date and the associated customer.
-        # Retrieve Order: Implement an endpoint that allows customers to retrieve details of a specific order based on its unique identifier (ID). Provide a clear overview of the order, including the order date and associated products.
-        # Track Order: Develop functionality that enables customers to track the status and progress of their orders. Customers should be able to access information such as order dates and expected delivery dates.
-            # Manage Order History (Bonus): Create an endpoint that allows customers to access their order history, listing all previous orders placed. Each order entry should provide comprehensive information, including the order date and associated products.
-            # Cancel Order (Bonus): Implement an order cancellation feature, allowing customers to cancel an order if it hasn't been shipped or completed. Ensure that canceled orders are appropriately reflected in the system.
-            # Calculate Order Total Price (Bonus): Include an endpoint that calculates the total price of items in a specific order, considering the prices of the products included in the order. This calculation should be specific to each customer and each order, providing accurate pricing information.
-
-    # 4. Database Integration:
-        # Utilize Flask-SQLAlchemy to integrate a MySQL database into the application.
-        # Design and create the necessary Model to represent customers, orders, products, customer accounts, and any additional features.
-        # Establish relationships between tables to model the application's core functionality.
-        # Ensure proper database connections and interactions for data storage and retrieval.
-
-    # 5. (BONUS) Data Validation and Error Handling:
-        # Implement data validation mechanisms to ensure that user inputs meet specified criteria (e.g., valid email addresses, proper formatting).
-        # Use try, except, else, and finally blocks to handle errors gracefully and provide informative error messages to guide users.
-
-    # 6. User Interface (Postman):
-        # Develop Postman collections that categorize and group API requests according to their functionality. Separate collections for Customer Management, Product Management, Order Management, and Bonus Features should be created for clarity.
-
     # 7. GitHub Repository:
-        # Create a GitHub repository for the project and commit code regularly.
         # Maintain a clean and interactive README.md file in the GitHub repository, providing clear instructions on how to run the application and explanations of its features.
         # Include a link to the GitHub repository in the project documentation.
 
 app = Flask(__name__)
 cors = CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/e_commerce_db2"
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/Online_shopping_project"
 app.json.sort_keys = False
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 Base = declarative_base(cls = db.Model)
-with app.app_context(): # What is this? Where does this go???
-    db.create_all()
+metadata = MetaData() 
+registry = registry()
+app.app_context().push()
+
+
+# Order Product 
 class OrderProduct(Base): 
-    __tablename__ = "Order_Product",
-    order_id: Mapped[int] = mapped_column(ForeignKey('Orders.order_id'), primary_key = True)
-    product_id: Mapped[int] = mapped_column(ForeignKey('Products.product_id'), primary_key = True)
+    __tablename__ = "Order_Product"
+    order_id = Column(Integer, ForeignKey('Orders.order_id'), primary_key=True)
+    product_id = Column(Integer, ForeignKey('Products.product_id'), primary_key=True)
 
 class OrderProductSchema(ma.Schema):
-    order_id = fields.Integer(required = True)
-    product_id = fields.Integer(required = False)
+    order_id = fields.Integer(required=True)
+    product_id = fields.Integer(required=False)
     
     class Meta:
         fields = ("order_id", "product_id")
 
 order_product_schema = OrderProductSchema()
-order_products_schema = OrderProductSchema(many = True) 
+order_products_schema = OrderProductSchema(many=True) 
 
+
+# Product 
 class Product(Base):
     __tablename__ = "Products"
-    product_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
-    name: Mapped[str] = mapped_column(String(255), nullable = False)
-    price: Mapped[float] = mapped_column(Float, nullable = False)
-    orders: Mapped["OrderProduct"] = relationship("OrderProduct")
+    product_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(255), nullable=False)
+    price = Column(Float, nullable=False)
+    orders = relationship("OrderProduct")
 
 class ProductSchema(ma.Schema):
-    product_id = fields.Integer(required = False)
-    name = fields.String(required = True)
-    price = fields.Float(required = True)
+    product_id = fields.Integer(required=False)
+    name = fields.String(required=True)
+    price = fields.Float(required=True)
 
     class Meta:
         fields = ("product_id", "name", "price")
 
 product_schema = ProductSchema()
-products_schema = ProductSchema(many = True) 
+products_schema = ProductSchema(many=True) 
 
 @app.route("/products", methods = ["GET"])
 def get_products():
@@ -132,17 +67,18 @@ def get_products():
     result = db.session.execute(query).scalars() 
     print(result)
     products = result.all() 
-    return product_schema.jsonify(products)
+    return products_schema.jsonify(products)
 
 @app.route("/products/name_of_product/<string:name>", methods=["GET"])
 def get_product_per_name(name):
-    product = Product.query.filter_by(name=name).first()
+    product = Product.query.filter(name==name).first()
     if product:
         return product_schema.jsonify(product)
     else:
         return jsonify({"message": "Product could not be found by that name"}), 404
     
 @app.route("/products", methods = ["POST"])
+
 def add_product():
     try:
         product_data = product_schema.load(request.json)
@@ -158,30 +94,31 @@ def add_product():
             session.commit()
     return jsonify({"message": "New product added successfully"}), 201 
 
-@app.route("/products/<int:id>", methods=["PUT"]) # Want to see how Ryan does this... not sure this is correct 
-def update_product(id):
+@app.route("/products/<int:product_id>", methods=["PUT"])
+def update_product(product_id):
     try:
-        product = Product.query.get(id)
+        query = select(Product).filter(Product.product_id == product_id)
+        product = db.session.execute(query).scalars().first()
         if not product: 
             return jsonify({"message": "Product could not be found with that product ID"}), 404
         product_data = product_schema.load(request.json, partial = True)
-        for key, value in product_data.items():
-            setattr(product, key, value)
+        for field, value in product_data.items():
+            setattr(product, field, value)
         db.session.commit()
         return jsonify({"message": "Product updated successfully"}), 200
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-@app.route("/products/<int:id>", methods=["DELETE"])
-def delete_product(id):
-    product = Product.query.get(id)
+@app.route("/products/<int:product_id>", methods=["DELETE"])
+def delete_product(product_id):
+    product = Product.query.filter(product_id==product_id).first()
     if not product: 
         return jsonify({"message": "Product could not be found with that product ID"}), 404
     db.session.delete(product)
     db.session.commit()
     return jsonify({"message": "Product deleted successfully."}), 200
 
-@app.route("/restock_products", methods=["POST"]) # This is a bonus option 
+@app.route("/products/restock_products", methods=["POST"]) # This is a bonus option 
 def restock_products():
     threshold = request.json.get("threshold", 10) 
     products_to_restock = []
@@ -193,16 +130,23 @@ def restock_products():
     return products_schema.jsonify(products_to_restock)
 
 
+# Orders
 
-
+order_table = Table(
+    "Orders",
+    metadata,
+    Column("order_id", Integer, primary_key = True, autoincrement = True),
+    Column("date", Date, nullable = False),
+    Column("customer_id", Integer, ForeignKey('Customers.customer_id'))
+)
 class Order(Base):
     __tablename__ = "Orders"
     order_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
     date: Mapped[datetime.date] = mapped_column(Date, nullable = False)
     customer_id: Mapped[int] = mapped_column(Integer, ForeignKey('Customers.customer_id'))
     customer: Mapped['Customer'] = relationship("Customer", back_populates = "orders")
-    products: Mapped[List["Product"]] = relationship("Product", secondary = "Order_product")
-    
+    products: Mapped[List["Product"]] = relationship("Product", secondary = "Order_Product")
+
 class OrderSchema(ma.Schema):
     order_id = fields.Integer(required = False)
     date = fields.Date(required = True)
@@ -220,11 +164,12 @@ def get_orders():
     result = db.session.execute(query).scalars() 
     print(result)
     orders = result.all() 
-    return order_schema.jsonify(orders)
+    return orders_schema.jsonify(orders)
 
 @app.route("/orders/<int:customer_id>", methods=["GET"])
 def get_order_per_customer_id(customer_id):
-    orders = Order.query.filter_by(customer_id=customer_id).all() 
+    query = select(Order).filter(Order.customer_id == customer_id)
+    orders = db.session.execute(query).scalars() 
     if orders:
         return orders_schema.jsonify(orders)
 
@@ -242,37 +187,37 @@ def add_order():
         with session.begin():
             date = order_data['date']
             customer_id = order_data['customer_id']
-            new_order = CustomerAccount(date = date, customer_id = customer_id)
+            new_order = Order(date = date, customer_id = customer_id)
             session.add(new_order)
             session.commit()
     return jsonify({"message": "New order added successfully"}), 201 
 
-@app.route("/orders/<int:id>", methods=["PUT"]) # Want to see how Ryan does this... not sure this is correct 
-def update_order(id):
+@app.route("/orders/<int:order_id>", methods=["PUT"]) 
+def update_order(order_id):
     try:
-        order = Order.query.get(id)
+        order = Order.query.filter(Order.order_id ==order_id).first()
         if not order: 
             return jsonify({"message": "Order could not be found with that order ID"}), 404
         order_data = order_schema.load(request.json, partial = True)
-        for key, value in order_data.items():
-            setattr(order, key, value)
+        for field, value in order_data.items():
+            setattr(order, field, value)
         db.session.commit()
         return jsonify({"message": "Order updated successfully"}), 200
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-@app.route("/orders/<int:id>", methods=["DELETE"])
-def delete_order(id):
-    order = Order.query.get(id)
+@app.route("/orders/<int:order_id>", methods=["DELETE"])
+def delete_order(order_id):
+    order = Order.query.filter(Order.order_id == order_id).first()
     if not order: 
         return jsonify({"message": "Order could not be found with that order ID"}), 404
     db.session.delete(order)
     db.session.commit()
     return jsonify({"message": "Order deleted successfully."}), 200
 
-@app.route("/track_order/<int:order_id>", methods=["GET"]) 
+@app.route("/track_order/<int:order_id>", methods=["GET"]) # This was listed on the initial project assignment then removed (Track Order)
 def track_order(order_id):
-    order = Order.query.get(order_id)
+    order = Order.query.filter(Order.order_id == order_id).first()
     if not order:
         return jsonify({"message": "Order not found"}), 404
     expected_delivery_date = order.date + timedelta(days=7)
@@ -285,32 +230,30 @@ def track_order(order_id):
     }
     return jsonify(order_data)
 
-@app.route("/cancel_order/<int:order_id>", methods=["DELETE"]) #This is a bonus option
+@app.route("/cancel_order/<int:order_id>", methods=["DELETE"]) # This is a bonus option (Cancel Order)
 def cancel_order(order_id):
-    order = Order.query.get(order_id)
+    order = Order.query.filter(Order.order_id == order_id).first()
     if not order:
         return jsonify({"message": "Order not found"}), 404
-    if order.status in ["Shipped", "Completed"]:
+    if order_id not in dir(order):
+        return jsonify({"message": "Order id not found"}), 500
+    if order_id in ["Shipped", "Completed"]:
         return jsonify({"message": "Cannot cancel order. It has already been shipped or completed."}), 400
     db.session.delete(order)
     db.session.commit()
     return jsonify({"message": "Order canceled successfully"}), 200
 
 
-
-
-
-
+# Customer
 
 class Customer(Base):
     __tablename__ = "Customers"
     customer_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
-    name: Mapped[str] = mapped_column(String(255))
-    email: Mapped[str] = mapped_column(String(320))
-    phone: Mapped[str] = mapped_column(String(15))
+    name: Mapped[str] = mapped_column(String(255), nullable = False)
+    email: Mapped[str] = mapped_column(String(320), nullable = False)
+    phone: Mapped[str] = mapped_column(String(15), nullable = False)
     customer_account: Mapped["CustomerAccount"] = relationship(back_populates = "customer")
-    # orders: Mapped[List["Order"]] = db.relationship(back_populates = "customer")
-    orders: MappedCollection = mapped_column([])
+    orders: Mapped[List["Order"]] = relationship("Order", back_populates = "customer")
     
 class CustomerSchema(ma.Schema):
     customer_id = fields.Integer(required = False)
@@ -332,9 +275,9 @@ def get_customers():
     customers = result.all() 
     return customers_schema.jsonify(customers)
 
-@app.route("/customers/<int:id>", methods=["GET"])
-def get_customer_per_id(id):
-    customer = Customer.query.filter_by(customer_id=id).first()
+@app.route("/customers/<int:customer_id>", methods=["GET"])
+def get_customer_per_id(customer_id):
+    customer = Customer.query.filter(customer_id=customer_id).first()
     if customer:
         return customer_schema.jsonify(customer)
     else:
@@ -357,12 +300,10 @@ def add_customer():
             session.commit()
     return jsonify({"message": "New customer added successfully"}), 201 
 
-@app.route("/customers/<int:customer_id>", methods=["PUT"]) # Want to see how Ryan does this... not sure this is correct 
+@app.route("/customers/<int:customer_id>", methods=["PUT"]) 
 def update_customer(customer_id):
     try:
         customer = Customer.query.filter(Customer.customer_id == customer_id ).first()
-        # result = session.execute(query).scalars().first() 
-        # customer = Customer.query.get(customer_id)
         if not customer: 
             return jsonify({"message": "Customer could not be found with that customer ID"}), 404
         customer_data = customer_schema.load(request.json, partial = True)
@@ -373,9 +314,9 @@ def update_customer(customer_id):
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-@app.route("/customers/<int:id>", methods=["DELETE"])
-def delete_customer(id):
-    customer = Customer.query.get(id)
+@app.route("/customers/<int:customer_id>", methods=["DELETE"])
+def delete_customer(customer_id):
+    customer = Customer.query.filter(Customer.customer_id == customer_id).first()
     if not customer: 
         return jsonify({"message": "Customer could not be found with that customer ID"}), 404
     db.session.delete(customer)
@@ -383,10 +324,7 @@ def delete_customer(id):
     return jsonify({"message": "Customer deleted successfully."}), 200
 
 
-
-
-
-
+# Customer Account
 class CustomerAccount(Base):
     __tablename__ = "Customer_Accounts"
     account_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
@@ -395,13 +333,11 @@ class CustomerAccount(Base):
     customer_id: Mapped[int] = mapped_column(ForeignKey("Customers.customer_id"))
     customer: Mapped['Customer'] = relationship(back_populates = "customer_account")
 
-
 class CustomerAccountSchema(ma.Schema):
     account_id = fields.Integer(required = False)
     username = fields.String(required = True)
     password = fields.String(required = True)
     customer_id = fields.Integer(required = True)
-
     class Meta:
         fields = ("account_id", "username", "password", "customer_id")
 
@@ -414,7 +350,7 @@ def get_customer_accounts():
     result = db.session.execute(query).scalars() 
     print(result)
     customer_accounts = result.all() 
-    return customer_account_schema.jsonify(customer_accounts)
+    return customer_accounts_schema.jsonify(customer_accounts)
 
 @app.route("/customer_accounts", methods = ["POST"])
 def add_customer_accounts():
@@ -433,23 +369,23 @@ def add_customer_accounts():
             session.commit()
     return jsonify({"message": "New customer account added successfully"}), 201 
 
-@app.route("/customer_accounts/<int:id>", methods=["PUT"]) # Want to see how Ryan does this... not sure this is correct 
-def update_customer_account(id):
+@app.route("/customer_accounts/<int:customer_account_id>", methods=["PUT"]) 
+def update_customer_account(customer_account_id):
     try:
-        customer_account = CustomerAccount.query.get(id)
+        customer_account = CustomerAccount.query.filter(CustomerAccount.account_id == customer_account_id).first()
         if not customer_account: 
             return jsonify({"message": "Customer Account could not be found with that ID"}), 404
-        customer_account_data = customer_account_schema.load(request.json, partial = True)
-        for key, value in customer_account_data.items():
-            setattr(customer_account, key, value)
+        customer_account_data = customer_account_schema.load(request.json, partial=True)
+        for field, value in customer_account_data.items():
+            setattr(customer_account, field, value)
         db.session.commit()
         return jsonify({"message": "Customer Account updated successfully"}), 200
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-@app.route("/customer_accounts/<int:id>", methods=["DELETE"])
-def delete_customer_account(id):
-    customer_account = CustomerAccount.query.get(id)
+@app.route("/customer_accounts/<int:customer_account_id>", methods=["DELETE"])
+def delete_customer_account(customer_account_id):
+    customer_account = CustomerAccount.query.filter(CustomerAccount.account_id == customer_account_id).first()
     if not customer_account: 
         return jsonify({"message": "Customer account could not be found with that customer account ID"}), 404
     db.session.delete(customer_account)
@@ -457,13 +393,6 @@ def delete_customer_account(id):
     return jsonify({"message": "Customer account deleted successfully."}), 200
 
 
-
-mapper(Order, Table("Orders", Base.metadata, autoload = True))
-mapper(Product, Table("Products", Base.metadata, autoload = True))
-mapper(Customer, Table("Customers", Base.metadata, autoload = True))
-mapper(CustomerAccount, Table("Customer_Accounts", Base.metadata, autoload = True))
-mapper(OrderProduct, Table("Order_Product", Base.metadata, autoload = True))
-
-
 if __name__ == "__main__":
-    app.run(debug = True, port = 5001)
+    db.create_all()
+    app.run(debug=True, port=5001)
