@@ -23,7 +23,7 @@ Key functionalities for this e-commerce application were developed including mod
 - Update a product 
 - Delete a product 
 - Restock products when low 
-### Order
+### Order Processing
 - Place an order 
 - Retrieve details about a specified order 
 - Retrieve all orders 
@@ -33,11 +33,15 @@ Key functionalities for this e-commerce application were developed including mod
 - Cancel an order that has not yet shipped or been completed 
 
 
-*Below is a screen shot of the mysql database showing that I was able to design and create the a model to represent customers, orders, products, customer accounts, and a few additional features.* 
+
+## *Below is a screen shot of the mysql database that shows the design of the model to represent customers, orders, products, customer accounts, and a few additional features.* 
+
 ![SQL Workbench](mySQLworkbench_online_shopping_project.png)
 
 
-*Below is a screen shot of the user interface, Postman, that shows collections that categorize and group API requests according to their functionality*
+
+## *Below is a screen shot of the user interface, Postman, that shows collections that categorize and group API requests according to their functionality*
+
 ![Postman](postman_online_shopping_project.png)
 
 
