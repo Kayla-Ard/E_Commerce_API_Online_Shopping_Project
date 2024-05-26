@@ -9,13 +9,10 @@ from marshmallow import fields, ValidationError
 from typing import List
 from datetime import datetime, timedelta, date
 
-    # 7. GitHub Repository:
-        # Maintain a clean and interactive README.md file in the GitHub repository, providing clear instructions on how to run the application and explanations of its features.
-        # Include a link to the GitHub repository in the project documentation.
 
 app = Flask(__name__)
 cors = CORS(app)
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/Online_shopping_project"
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/Online_Shopping_project"
 app.json.sort_keys = False
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
