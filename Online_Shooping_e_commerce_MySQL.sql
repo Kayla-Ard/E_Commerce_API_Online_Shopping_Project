@@ -1,0 +1,1 @@
+CREATE DATABASE Online_Shopping_project;

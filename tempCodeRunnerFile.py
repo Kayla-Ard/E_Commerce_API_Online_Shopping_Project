@@ -2,16 +2,17 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS 
 from flask_sqlalchemy import SQLAlchemy 
 from sqlalchemy.orm import Mapped, mapped_column, relationship, Session, registry
-from sqlalchemy import select, ForeignKey, delete, Column, String, Integer, Table, Float, Date, MetaData
+from sqlalchemy import select, ForeignKey, Column, String, Integer, Table, Float, Date, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from flask_marshmallow import Marshmallow 
 from marshmallow import fields, ValidationError
 from typing import List
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
 
 
 app = Flask(__name__)
 cors = CORS(app)
+# CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/Online_Shopping_project"
 app.json.sort_keys = False
 db = SQLAlchemy(app)
@@ -68,14 +69,14 @@ def get_products():
 
 @app.route("/products/name_of_product/<string:name>", methods=["GET"])
 def get_product_per_name(name):
-    product = Product.query.filter(name==name).first()
+    product = Product.query.filter(Product.name == name).first()
     if product:
         return product_schema.jsonify(product)
     else:
         return jsonify({"message": "Product could not be found by that name"}), 404
+
     
 @app.route("/products", methods = ["POST"])
-
 def add_product():
     try:
         product_data = product_schema.load(request.json)
@@ -165,13 +166,12 @@ def get_orders():
 
 @app.route("/orders/<int:customer_id>", methods=["GET"])
 def get_order_per_customer_id(customer_id):
-    query = select(Order).filter(Order.customer_id == customer_id)
-    orders = db.session.execute(query).scalars() 
+    orders = Order.query.filter(Order.customer_id == customer_id).all()
     if orders:
         return orders_schema.jsonify(orders)
-
     else:
         return jsonify({"message": "No orders found for this customer"}), 404
+
 
 @app.route("/orders", methods = ["POST"])
 def add_order():
@@ -274,11 +274,12 @@ def get_customers():
 
 @app.route("/customers/<int:customer_id>", methods=["GET"])
 def get_customer_per_id(customer_id):
-    customer = Customer.query.filter(customer_id=customer_id).first()
+    customer = Customer.query.filter(Customer.customer_id == customer_id).first()
     if customer:
         return customer_schema.jsonify(customer)
     else:
         return jsonify({"message": "Customer could not be found with that customer ID"}), 404
+
 
 @app.route("/customers", methods = ["POST"])
 def add_customer():
@@ -369,6 +370,7 @@ def add_customer_accounts():
 @app.route("/customer_accounts/<int:customer_account_id>", methods=["PUT"]) 
 def update_customer_account(customer_account_id):
     try:
+        print(f"Received request to update customer account ID: {customer_account_id}")
         customer_account = CustomerAccount.query.filter(CustomerAccount.account_id == customer_account_id).first()
         if not customer_account: 
             return jsonify({"message": "Customer Account could not be found with that ID"}), 404
@@ -382,6 +384,7 @@ def update_customer_account(customer_account_id):
 
 @app.route("/customer_accounts/<int:customer_account_id>", methods=["DELETE"])
 def delete_customer_account(customer_account_id):
+    print(f"Received request to delete customer account ID: {customer_account_id}")
     customer_account = CustomerAccount.query.filter(CustomerAccount.account_id == customer_account_id).first()
     if not customer_account: 
         return jsonify({"message": "Customer account could not be found with that customer account ID"}), 404
