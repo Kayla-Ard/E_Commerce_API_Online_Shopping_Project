@@ -31,7 +31,7 @@ class OrderProduct(Base):
 
 class OrderProductSchema(ma.Schema):
     order_id = fields.Integer(required=True)
-    product_id = fields.Integer(required=False)
+    product_id = fields.Integer(required=True)
     
     class Meta:
         fields = ("order_id", "product_id")
@@ -46,7 +46,7 @@ class Product(Base):
     product_id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     price = Column(Float, nullable=False)
-    orders = relationship("OrderProduct")
+    orders = relationship("Order", secondary="Order_Product", back_populates="products")
 
 class ProductSchema(ma.Schema):
     product_id = fields.Integer(required=False)
@@ -130,28 +130,29 @@ def restock_products():
 
 # Orders
 
-order_table = Table(
-    "Orders",
-    metadata,
-    Column("order_id", Integer, primary_key = True, autoincrement = True),
-    Column("date", Date, nullable = False),
-    Column("customer_id", Integer, ForeignKey('Customers.customer_id'))
-)
+# order_table = Table(
+#     "Orders",
+#     metadata,
+#     Column("order_id", Integer, primary_key = True, autoincrement = True),
+#     Column("date", Date, nullable = False),
+#     Column("customer_id", Integer, ForeignKey('Customers.customer_id'))
+# )
 class Order(Base):
     __tablename__ = "Orders"
     order_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
     date: Mapped[datetime.date] = mapped_column(Date, nullable = False)
     customer_id: Mapped[int] = mapped_column(Integer, ForeignKey('Customers.customer_id'))
     customer: Mapped['Customer'] = relationship("Customer", back_populates = "orders")
-    products: Mapped[List["Product"]] = relationship("Product", secondary = "Order_Product")
+    products: Mapped[List["Product"]] = relationship("Product", secondary = "Order_Product", back_populates="orders")
 
 class OrderSchema(ma.Schema):
     order_id = fields.Integer(required = False)
     date = fields.Date(required = True)
     customer_id = fields.Integer(required = True)
+    product_ids = fields.List(fields.Integer())
 
     class Meta:
-        fields = ("order_id", "date", "customer_id")
+        fields = ("order_id", "date", "customer_id", "product_ids")
 
 order_schema = OrderSchema()
 orders_schema = OrderSchema(many = True) 
@@ -163,6 +164,19 @@ def get_orders():
     print(result)
     orders = result.all() 
     return orders_schema.jsonify(orders)
+
+@app.route("/orders/<int:order_id>", methods = ["GET"])
+def get_order_by_id(order_id):
+    order = db.session.query(Order).filter(Order.order_id == order_id).first()
+    products = OrderProduct.query.filter(OrderProduct.order_id == order_id).all()
+    product_ids = [product.product_id for product in products]
+    data = {
+        "order_id": order.order_id,
+        "date": order.date,
+        "customer_id": order.customer_id,
+        "product_ids": product_ids
+    }
+    return order_schema.jsonify(data)
 
 @app.route("/orders/<int:customer_id>", methods=["GET"])
 def get_order_per_customer_id(customer_id):
@@ -184,8 +198,13 @@ def add_order():
         with session.begin():
             date = order_data['date']
             customer_id = order_data['customer_id']
+            product_ids = order_data['product_ids']
             new_order = Order(date = date, customer_id = customer_id)
             session.add(new_order)
+            session.flush()
+            for product_id in product_ids:
+                product = session.query(Product).filter(Product.product_id == product_id).first()
+                new_order.products.append(product)
             session.commit()
     return jsonify({"message": "New order added successfully"}), 201 
 
