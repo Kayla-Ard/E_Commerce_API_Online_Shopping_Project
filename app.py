@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 
 app = Flask(__name__)
 cors = CORS(app)
-# CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/*": {"origins": "http://localhost:5173"}})
 app.config['SQLALCHEMY_DATABASE_URI'] = "mysql+mysqlconnector://root:Hammond45!@localhost/Online_Shopping_project"
 app.json.sort_keys = False
 db = SQLAlchemy(app)
@@ -129,14 +129,6 @@ def restock_products():
 
 
 # Orders
-
-# order_table = Table(
-#     "Orders",
-#     metadata,
-#     Column("order_id", Integer, primary_key = True, autoincrement = True),
-#     Column("date", Date, nullable = False),
-#     Column("customer_id", Integer, ForeignKey('Customers.customer_id'))
-# )
 class Order(Base):
     __tablename__ = "Orders"
     order_id: Mapped[int] = mapped_column(autoincrement = True, primary_key = True)
@@ -193,21 +185,28 @@ def add_order():
         order_data = order_schema.load(request.json)
     except ValidationError as err:
         return jsonify(err.messages), 400
-    
-    with Session(db.engine) as session: 
-        with session.begin():
-            date = order_data['date']
-            customer_id = order_data['customer_id']
-            product_ids = order_data['product_ids']
-            new_order = Order(date = date, customer_id = customer_id)
-            session.add(new_order)
-            session.flush()
-            for product_id in product_ids:
-                product = session.query(Product).filter(Product.product_id == product_id).first()
-                new_order.products.append(product)
-            session.commit()
-    return jsonify({"message": "New order added successfully"}), 201 
-
+    try:
+        with Session(db.engine) as session: 
+            with session.begin():
+                date = order_data['date']
+                customer_id = order_data['customer_id']
+                product_ids = order_data['product_ids']
+                new_order = Order(date = date, customer_id = customer_id)
+                session.add(new_order)
+                session.flush()
+                
+                order_id = new_order.order_id
+                
+                for product_id in product_ids:
+                    product = session.query(Product).filter(Product.product_id == product_id).first()
+                    new_order.products.append(product)
+                session.commit()
+                
+        return jsonify({"message": "New order added successfully", "order_id": order_id}), 201 
+    except Exception as e:
+            print(f"Error: {e}") 
+            return jsonify({"error": str(e)}), 500
+        
 @app.route("/orders/<int:order_id>", methods=["PUT"]) 
 def update_order(order_id):
     try:
@@ -300,22 +299,39 @@ def get_customer_per_id(customer_id):
         return jsonify({"message": "Customer could not be found with that customer ID"}), 404
 
 
-@app.route("/customers", methods = ["POST"])
+@app.route("/customers", methods=["POST"])
 def add_customer():
     try:
         customer_data = customer_schema.load(request.json)
     except ValidationError as err:
+        print(f"Validation error: {err.messages}")
         return jsonify(err.messages), 400
-    
-    with Session(db.engine) as session: 
-        with session.begin():
-            name = customer_data['name']
-            email = customer_data['email']
-            phone = customer_data['phone']
-            new_customer = Customer(name = name, email = email, phone = phone)
-            session.add(new_customer)
-            session.commit()
-    return jsonify({"message": "New customer added successfully"}), 201 
+
+    try:
+        with Session(db.engine) as session:
+            with session.begin():
+                name = customer_data['name']
+                email = customer_data['email']
+                phone = customer_data['phone']
+                new_customer = Customer(name=name, email=email, phone=phone)
+                session.add(new_customer)
+                session.flush()
+                
+                customer_id = new_customer.customer_id
+                
+                session.commit()
+            
+        return jsonify({
+    "message": "New customer added successfully",
+    "customer_id": customer_id,
+    "name": name,
+    "email": email,
+    "phone": phone
+}), 201  
+    except Exception as e:
+        print(f"Error adding customer: {e}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route("/customers/<int:customer_id>", methods=["PUT"]) 
 def update_customer(customer_id):
@@ -333,12 +349,21 @@ def update_customer(customer_id):
 
 @app.route("/customers/<int:customer_id>", methods=["DELETE"])
 def delete_customer(customer_id):
-    customer = Customer.query.filter(Customer.customer_id == customer_id).first()
-    if not customer: 
-        return jsonify({"message": "Customer could not be found with that customer ID"}), 404
-    db.session.delete(customer)
-    db.session.commit()
-    return jsonify({"message": "Customer deleted successfully."}), 200
+    try:
+        customer = Customer.query.filter_by(customer_id=customer_id).first()
+        if not customer:
+            return jsonify({"message": "Customer not found"}), 404
+
+        Order.query.filter_by(customer_id=customer_id).delete()
+
+        db.session.delete(customer)
+        db.session.commit()
+
+        return jsonify({"message": "Customer deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Failed to delete customer: {str(e)}"}), 500
 
 
 # Customer Account
